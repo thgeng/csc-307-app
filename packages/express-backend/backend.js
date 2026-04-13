@@ -1,5 +1,5 @@
 import express from "express";
-
+import cors from "cors";
 // Data
 const users = {
   users_list: [
@@ -46,6 +46,7 @@ const findUsersByNameAndJob = (name, job) => {
 const app = express();
 const port = 8000;
 
+app.use(cors());
 app.use(express.json());
 
 // Root route
