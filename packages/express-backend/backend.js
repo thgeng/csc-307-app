@@ -1,47 +1,16 @@
 import express from "express";
 import cors from "cors";
-// Data
-const users = {
-  users_list: [
-    { id: "xyz789", name: "Charlie", job: "Janitor" },
-    { id: "abc123", name: "Mac", job: "Bouncer" },
-    { id: "ppp222", name: "Mac", job: "Professor" },
-    { id: "yat999", name: "Dee", job: "Aspiring actress" },
-    { id: "zap555", name: "Dennis", job: "Bartender" }
-  ]
-};
+import mongoose from "mongoose";
 
-// Helper functions
-const findUserByName = (name) => {
-  return users.users_list.filter((user) => user.name === name);
-};
-
-const findUserById = (id) => {
-  return users.users_list.find((user) => user.id === id);
-};
-
-const addUser = (user) => {
-  users.users_list.push(user);
-  return user;
-};
-
-const deleteUserById = (id) => {
-  const index = users.users_list.findIndex((user) => user.id === id);
-
-  if (index === -1) {
-    return undefined;
-  }
-
-  const deletedUser = users.users_list[index];
-  users.users_list.splice(index, 1);
-  return deletedUser;
-};
-
-const findUsersByNameAndJob = (name, job) => {
-  return users.users_list.filter(
-    (user) => user.name === name && user.job === job
-  );
-};
+import {
+  getUsers,
+  findUserById,
+  findUserByName,
+  findUserByJob,
+  findUserByNameAndJob,
+  addUser,
+  deleteUserById,
+} from "./user-services.js";
 
 const app = express();
 const port = 8000;
@@ -49,58 +18,61 @@ const port = 8000;
 app.use(cors());
 app.use(express.json());
 
-// Root route
-app.get("/", (req, res) => {
-  res.send("Hello World!");
-});
+// connect MongoDB
+mongoose.connect("mongodb://127.0.0.1:27017/users_db")
+  .then(() => console.log("MongoDB connected"))
+  .catch(err => console.log(err));
 
-// Get all users, or filter by name, or filter by name + job
+
+// ==================== ROUTES ====================
+
+// GET all / filter
 app.get("/users", (req, res) => {
-  const name = req.query.name;
-  const job = req.query.job;
+  const { name, job } = req.query;
 
-  if (name !== undefined && job !== undefined) {
-    const result = findUsersByNameAndJob(name, job);
-    res.send({ users_list: result });
-  } else if (name !== undefined) {
-    const result = findUserByName(name);
-    res.send({ users_list: result });
+  if (name && job) {
+    findUserByNameAndJob(name, job)
+      .then(data => res.send({ users_list: data }))
+      .catch(err => res.status(500).send(err));
+
+  } else if (name) {
+    findUserByName(name)
+      .then(data => res.send({ users_list: data }))
+      .catch(err => res.status(500).send(err));
+
+  } else if (job) {
+    findUserByJob(job)
+      .then(data => res.send({ users_list: data }))
+      .catch(err => res.status(500).send(err));
+
   } else {
-    res.send(users);
+    getUsers()
+      .then(data => res.send({ users_list: data }))
+      .catch(err => res.status(500).send(err));
   }
 });
 
-// Get one user by id
+// GET by id
 app.get("/users/:id", (req, res) => {
-  const id = req.params.id;
-  const result = findUserById(id);
-
-  if (result === undefined) {
-    res.status(404).send("Resource not found.");
-  } else {
-    res.send(result);
-  }
+  findUserById(req.params.id)
+    .then(user => user ? res.send(user) : res.status(404).send("Not found"))
+    .catch(err => res.status(500).send(err));
 });
 
-// Add a new user
+// POST
 app.post("/users", (req, res) => {
-  const userToAdd = req.body;
-  addUser(userToAdd);
-  res.send();
+  addUser(req.body)
+    .then(user => res.status(201).send(user))
+    .catch(err => res.status(500).send(err));
 });
 
-// Delete one user by id
+//  DELETE
 app.delete("/users/:id", (req, res) => {
-  const id = req.params.id;
-  const deletedUser = deleteUserById(id);
-
-  if (deletedUser === undefined) {
-    res.status(404).send("Resource not found.");
-  } else {
-    res.send(deletedUser);
-  }
+  deleteUserById(req.params.id)
+    .then(user => user ? res.send(user) : res.status(404).send("Not found"))
+    .catch(err => res.status(500).send(err));
 });
 
 app.listen(port, () => {
-  console.log(`Example app listening at http://localhost:${port}`);
+  console.log("Server running on 8000");
 });
